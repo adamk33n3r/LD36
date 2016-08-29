@@ -67,7 +67,7 @@ namespace LD36.Scripts {
             Instantiate(this.sardineSchoolPrefab, new Vector3(x, y, this.sardineSchoolPrefab.transform.position.z), Quaternion.identity);
             x = Random.Range(-WORLD_WIDTH / 2 + 1, WORLD_WIDTH / 2 - 1);
             Instantiate(this.sardineSchoolPrefab, new Vector3(x, y, this.sardineSchoolPrefab.transform.position.z), Quaternion.identity);
-            
+
             // Trout
             y = -2;
             x = Random.Range(-WORLD_WIDTH / 2 + 1, WORLD_WIDTH / 2 - 1);
@@ -76,7 +76,7 @@ namespace LD36.Scripts {
             Instantiate(this.troutSchoolPrefab, new Vector3(x, y, this.troutSchoolPrefab.transform.position.z), Quaternion.identity);
 
             // Salmon
-            y = -4;
+            y = -3;
             x = Random.Range(-WORLD_WIDTH / 2 + 1, WORLD_WIDTH / 2 - 1);
             Instantiate(this.salmonSchoolPrefab, new Vector3(x, y, this.salmonSchoolPrefab.transform.position.z), Quaternion.identity);
             x = Random.Range(-WORLD_WIDTH / 2 + 1, WORLD_WIDTH / 2 - 1);
@@ -99,7 +99,7 @@ namespace LD36.Scripts {
                 StartCoroutine(WaitForBoatsToLeave());
             }
         }
-        
+
         private IEnumerator WaitForBoatsToLeave() {
             Debug.Log("TELLING ALL BOATS TO LEAVE");
             foreach (Boat boat in this.boatsInPlay) {
