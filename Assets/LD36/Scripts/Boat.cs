@@ -4,32 +4,45 @@ using System.Collections.Generic;
 using System.Linq;
 using LD36.ScriptableObjects;
 using UnityEngine;
+using UnityEngine.UI;
 using Random = UnityEngine.Random;
 
 namespace LD36.Scripts {
     public class Boat : MonoBehaviour {
+        // TODO: rebalance these
         private float unloadTimeMedian = 2f;
         private float unloadTimeDelta = 1f;
         private float catchTimeMedian = 3f;
         private float catchTimeDelta = 2f;
-        private float netDepth = 3f;
-        private float maxWeight = 500f;
+        private bool emptying;
 
         private Net net;
-        private List<Species> fish;
+        private ScriptableObjects.Boat boatData;
+        private List<Fish> fish;
+        private Dictionary<Species, TextDisplay> displayDict;
+        private TextDisplay weightDisplay;
+
+        private Action cbOnLeaveScreen;
 
         private void Awake() {
-            this.fish = new List<Species>();
+            this.net = GetComponentInChildren<Net>();
+            this.fish = new List<Fish>();
+            this.displayDict = new Dictionary<Species, TextDisplay>();
+            this.weightDisplay = this.transform.Find("Canvas/Container/Left/Weight").GetComponent<TextDisplay>();
+            this.transform.Find("Canvas/Container/Left/Move").GetComponent<Button>().onClick.AddListener(() => {
+                LevelManager.Instance.MoveBoat(this.gameObject);
+            });
+            this.transform.Find("Canvas/Container/Left/Empty").GetComponent<Button>().onClick.AddListener(Empty);
         }
 
         private void Start() {
-            Dictionary<Species, TextDisplay> displayDict = new Dictionary<Species, TextDisplay>();
             foreach (Species species in Enum.GetValues(typeof(Species))) {
-                displayDict.Add(species, GameObject.Find(species.ToString()).GetComponent<TextDisplay>());
+                GameObject go = this.transform.Find("Canvas/Container/FishCounts/"+species).gameObject;
+                TextDisplay disp = go.GetComponent<TextDisplay>();
+                disp.prefix = species.ToString();
+                disp.UpdateText(0);
+                this.displayDict.Add(species, disp);
             }
-
-            this.net = GetComponentInChildren<Net>();
-
             // Net Lowered
             this.net.RegisterOnLoweredCallback((net) => {
                 Debug.Log("Net lowered");
@@ -47,35 +60,51 @@ namespace LD36.Scripts {
                 Debug.Log("Net raised");
                 Debug.Log("Unloading fish");
                 // TODO: Have different "sized" fish
-                foreach (KeyValuePair<Species, int> keyValuePair in net.Fish) {
-                    Debug.Log(string.Format("Caught {0} {1}", keyValuePair.Value, keyValuePair.Key));
-                    displayDict[keyValuePair.Key].UpdateText(keyValuePair.Value, true);
-                    for (int i = 0; i < keyValuePair.Value; i++) {
-                        this.fish.Add(keyValuePair.Key);
+                Dictionary<Species, int> catchAmount = new Dictionary<Species, int>();
+                foreach (Fish fish in net.Fish) {
+                    this.fish.Add(fish);
+                    if (!catchAmount.ContainsKey(fish.species)) {
+                        catchAmount[fish.species] = 0;
                     }
+                    catchAmount[fish.species]++;
+                }
+                foreach (KeyValuePair<Species, int> caught in catchAmount) {
+                    Debug.Log(string.Format("Caught {0} {1}", caught.Value, caught.Key));
+                    this.displayDict[caught.Key].UpdateText(caught.Value, true);
                 }
 
-                Debug.Log(string.Format("calced: {0}, max: {1}", CalcWeight(), this.maxWeight));
-                if (CalcWeight() >= this.maxWeight) {
+                int weight = CalcWeight();
+                this.weightDisplay.UpdateText(weight);
+
+                Debug.Log(string.Format("calced: {0}, max: {1}", weight, this.boatData.maxWeight));
+                if (weight >= this.boatData.maxWeight) {
                     Debug.Log("BOAT FULL!");
-                    StartCoroutine(CoroutineThenAction(MoveOffscreen(), () => {
-                        Debug.Log("off screen now");
-                        Destroy(this.gameObject);
-                    }));
+                    Empty();
+                }
+
+                if (this.emptying) {
                     return;
                 }
                 
                 // Wait while unloading fish then send back down
-                float waitTime = this.catchTimeMedian + Random.Range(-this.catchTimeDelta, this.catchTimeDelta);
+                float waitTime = this.unloadTimeMedian + Random.Range(-this.unloadTimeDelta, this.unloadTimeDelta);
                 StartCoroutine(WaitThenAction(waitTime, () => {
+                    if (this.emptying) {
+                        return;
+                    }
                     Debug.Log("Sending back down");
-                    net.Lower(this.netDepth);
+                    net.Lower(this.boatData.netDepth);
                 }));
             });
 
             // Wait for a time then start fishing!
+            StartFishing();
+        }
+
+        public void StartFishing() {
+            Debug.Log("Starting fishing");
             StartCoroutine(WaitThenAction(1, () => {
-                this.net.Lower(this.netDepth);
+                this.net.Lower(this.boatData.netDepth);
             }));
         }
 
@@ -92,14 +121,37 @@ namespace LD36.Scripts {
         }
 
         private IEnumerator MoveOffscreen() {
-            while (this.transform.position.x > -GameManager.WORLD_WIDTH / 2f) {
-                this.transform.Translate(-0.01f, 0, 0);
+            while (this.transform.position.x > -LevelManager.WORLD_WIDTH / 2f - 2) {
+                this.transform.Translate(-Time.deltaTime, 0, 0);
                 yield return null;
             }
         }
 
-        private float CalcWeight() {
-            return this.fish.Sum(species => Fish.GetWeightOfSpecies(species));
+        private int CalcWeight() {
+            return this.fish.Sum(fish => fish.weight);
+        }
+
+        public void Empty() {
+            this.emptying = true;
+            StartCoroutine(CoroutineThenAction(MoveOffscreen(), () => {
+                LevelManager.Instance.AddFish(this.fish);
+                Destroy(this.gameObject);
+                if (this.cbOnLeaveScreen != null) {
+                    this.cbOnLeaveScreen();
+                }
+            }));
+        }
+
+        public void SetBoatType(ScriptableObjects.Boat boatData) {
+            this.boatData = boatData;
+        }
+
+        public void SetNetType(ScriptableObjects.Net netData) {
+            this.net.SetNetType(netData);
+        }
+
+        public void RegisterOnLeaveCallback(Action callback) {
+            this.cbOnLeaveScreen += callback;
         }
     }
 }

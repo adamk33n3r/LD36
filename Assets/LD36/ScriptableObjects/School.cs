@@ -1,7 +1,7 @@
 using UnityEngine;
 
 namespace LD36.ScriptableObjects {
-    [CreateAssetMenu(fileName = "School", menuName = "LD36/School", order = 1)]
+    [CreateAssetMenu(fileName = "School", menuName = "LD36/School")]
     public class School : ScriptableObject {
         /// <summary>
         /// Fish in school

@@ -16,22 +16,22 @@ namespace LD36.Scripts {
         }
         public bool Raising { get; protected set; }
 
-        public ScriptableObjects.Net netData;
-        public Dictionary<Species, int> Fish { get; protected set; }
+        public List<Fish> Fish { get; protected set; }
 
         private Action<Net> cbOnLowered;
         private Action<Net> cbOnRaised;
 
         private float upSpeed;
         private float downSpeed;
+        private ScriptableObjects.Net netData;
 
         private void Awake() {
-            this.Fish = new Dictionary<Species, int>();
+            this.Fish = new List<Fish>();
         }
 
         private void Start () {
 //            this.downSpeed = 0.001f + Mathf.Pow(0.0000000000001f, 1f / this.netData.holeSize) / 10;
-            this.downSpeed = 0.001f + Mathf.Log(this.netData.holeSize, 10) / 100;
+            this.downSpeed = 0.001f + Mathf.Log(this.netData.holeSize, 10);
             this.upSpeed = this.downSpeed;
             Debug.Log("Down Speed: " + this.downSpeed);
             Debug.Log("Up Speed: " + this.upSpeed);
@@ -68,7 +68,7 @@ namespace LD36.Scripts {
         private IEnumerator RaiseNet() {
             this.Raising = true;
             while (this.transform.position.y < 0) {
-                this.transform.Translate(0, this.upSpeed, 0);
+                this.transform.Translate(0, Time.deltaTime * this.upSpeed, 0);
                 yield return null;
             }
             this.Raising = false;
@@ -81,7 +81,7 @@ namespace LD36.Scripts {
         private IEnumerator LowerNet(float depth) {
             this.Lowering = true;
             while (this.transform.position.y > -depth) {
-                this.transform.Translate(0, -this.downSpeed, 0);
+                this.transform.Translate(0, -this.downSpeed * Time.deltaTime, 0);
                 yield return null;
             }
             this.Lowering = false;
@@ -95,8 +95,9 @@ namespace LD36.Scripts {
             if (this.Lowering) {
                 return;
             }
-            Debug.Log(col.gameObject.name);
-            CatchFish(col.gameObject.GetComponent<School>());
+            School school = col.gameObject.GetComponent<School>();
+            CatchFish(school);
+            school.MakeVisible();
         }
 
         private void CatchFish(School school) {
@@ -112,9 +113,9 @@ namespace LD36.Scripts {
             Debug.Log(string.Format("Current weight in net is {0}", currentWeight));
             float weightLeft = this.netData.weightCapacity - currentWeight;
             Debug.Log(string.Format("Weight left is {0}", weightLeft));
-            float speciesWeight = ScriptableObjects.Fish.GetWeightOfSpecies(school.Fish.species);
-            Debug.Log(string.Format("Weight of species is {0}", speciesWeight));
-            int countFit = Mathf.FloorToInt(weightLeft / speciesWeight);
+            float fishWeight = school.Fish.weight;
+            Debug.Log(string.Format("Weight of species is {0}", fishWeight));
+            int countFit = Mathf.FloorToInt(weightLeft / fishWeight);
             Debug.Log(string.Format("{0} fish can fit", countFit));
             int fishToPutIn = Mathf.Clamp(count, 0, countFit);
             Debug.Log(string.Format("Putting in {0} fish", fishToPutIn));
@@ -123,16 +124,19 @@ namespace LD36.Scripts {
                 return;
             }
 
-            if (!this.Fish.ContainsKey(school.Fish.species)) {
-                this.Fish[school.Fish.species] = 0;
-            }
-            this.Fish[school.Fish.species] += fishToPutIn;
             Debug.Log(string.Format("Adding {0} fish", fishToPutIn));
+            for (int i = 0; i < fishToPutIn; i++) {
+                this.Fish.Add(school.Fish);
+            }
             school.TakeFish(fishToPutIn);
         }
 
         private float CalcWeight() {
-            return this.Fish.Sum(pair => ScriptableObjects.Fish.GetWeightOfSpecies(pair.Key) * pair.Value);
+            return this.Fish.Sum(fish => fish.weight);
+        }
+
+        public void SetNetType(ScriptableObjects.Net netData) {
+            this.netData = netData;
         }
     }
 }
