@@ -31,7 +31,7 @@ namespace LD36.Scripts {
 
         private void Start () {
 //            this.downSpeed = 0.001f + Mathf.Pow(0.0000000000001f, 1f / this.netData.holeSize) / 10;
-            this.downSpeed = 0.001f + Mathf.Log(this.netData.holeSize, 10);
+            this.downSpeed = 0.2f + Mathf.Log(this.netData.holeSize, 10);
             this.upSpeed = this.downSpeed;
             Debug.Log("Down Speed: " + this.downSpeed);
             Debug.Log("Up Speed: " + this.upSpeed);
